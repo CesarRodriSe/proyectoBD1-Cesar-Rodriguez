@@ -1,0 +1,299 @@
+-- Database: ProyectoBD1
+
+-- DROP DATABASE IF EXISTS "ProyectoBD1";
+
+CREATE DATABASE "ProyectoBD1"
+    WITH
+    OWNER = postgres
+    ENCODING = 'UTF8'
+    LC_COLLATE = 'es-MX'
+    LC_CTYPE = 'es-MX'
+    LOCALE_PROVIDER = 'libc'
+    TABLESPACE = pg_default
+    CONNECTION LIMIT = -1
+    IS_TEMPLATE = False;
+
+-- Secuencias
+CREATE SEQUENCE seq_taxon START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_lugar START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_pais START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_usuario START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_imagen START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_observacion START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE seq_identificacion START WITH 1 INCREMENT BY 1;
+
+-- Tablas
+
+-- Taxon
+CREATE TABLE Jerarquia_Taxon (
+    Nivel INTEGER PRIMARY KEY,
+    tipo_Jerarquia VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE Taxon (
+    ID_Taxon INTEGER PRIMARY KEY DEFAULT nextval('seq_taxon'),
+    Nombre_Cientifico VARCHAR(100) NOT NULL,
+    Nombre_Comun VARCHAR(100),
+    Nivel INTEGER NOT NULL REFERENCES Jerarquia_Taxon(Nivel),
+    ID_Padre INTEGER REFERENCES Taxon(ID_Taxon) -- Apunta al taxón del nivel superior
+);
+
+
+-- Cordenadas
+CREATE TABLE Lugar (
+    ID_Lugar INTEGER PRIMARY KEY DEFAULT nextval('seq_lugar'),
+    Latitud DECIMAL(9,6) NOT NULL,
+    Longitud DECIMAL(9,6) NOT NULL
+);
+
+-- Datos de usuario
+
+
+CREATE TABLE Pais (
+    ID_Pais INTEGER PRIMARY KEY DEFAULT nextval('seq_pais'),
+    Nombre_Pais VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE Usuario (
+    Cedula INTEGER PRIMARY KEY,
+    Nombre VARCHAR(100) NOT NULL,
+    Apellidos VARCHAR(100) NOT NULL,
+	Correo VARCHAR(100) NOT NULL,
+	Direccion VARCHAR(100) NOT NULL,
+    ID_Pais INTEGER REFERENCES Pais(ID_Pais)
+    
+);
+
+-- tablas de imagen
+
+CREATE TABLE Imagen (
+    ID_Imagen INTEGER PRIMARY KEY DEFAULT nextval('seq_imagen'),
+    Fecha_Foto DATE NOT NULL,
+	Permisos INTEGER NOT NULL,
+	Dueño VARCHAR(100) NOT NULL,
+    Usuario_Fotografo INTEGER REFERENCES Usuario(Cedula),
+    ID_Lugar INTEGER REFERENCES Lugar(ID_Lugar),
+    ID_Taxon INTEGER REFERENCES Taxon(ID_Taxon)
+);
+
+-- Observacion
+CREATE TABLE Observacion (
+    ID_observacion INTEGER PRIMARY KEY DEFAULT nextval('seq_observacion'),
+    Fecha_Observacion DATE NOT NULL,
+    comentario TEXT NOT NULL,
+    ID_Taxon INTEGER REFERENCES Taxon(ID_Taxon),
+    ID_Lugar INTEGER REFERENCES Lugar(ID_Lugar),
+    ID_Usuario INTEGER REFERENCES Usuario(Cedula),
+    ID_Imagen INTEGER REFERENCES Imagen(ID_Imagen)
+);
+
+CREATE TABLE Identificacion (
+    ID_identificacion INTEGER PRIMARY KEY DEFAULT nextval('seq_identificacion'),
+    Fecha_Identificacion DATE NOT NULL,
+    ID_Usuario INTEGER REFERENCES Usuario(Cedula),
+    ID_Taxon INTEGER REFERENCES Taxon(ID_Taxon)
+);
+
+CREATE TABLE Observacion_Identificacion (
+    ID_observacion INTEGER REFERENCES Observacion(ID_observacion),
+    ID_identificacion INTEGER REFERENCES Identificacion(ID_identificacion)
+);
+
+
+INSERT INTO Pais (Nombre_Pais) VALUES 
+('Costa Rica'),
+('Canadá'),
+('Brasil');
+
+INSERT INTO Usuario (Cedula, Nombre, Apellidos, Correo, Direccion, ID_Pais) VALUES
+(101, 'Luis', 'Ramírez', 'luis.ramirez@gmail.com', 'San José', 1),
+(102, 'Ana', 'González', 'ana.gonzalez@gmail.com', 'Alajuela', 1),
+(103, 'Mark', 'Johnson', 'mark.johnson@gmail.com', 'Toronto', 2),
+(104, 'Julia', 'Souza', 'julia.souza@gmail.com', 'São Paulo', 3),
+(105, 'Carlos', 'Vega', 'carlos.vega@gmail.com', 'Cartago', 1);
+
+INSERT INTO Jerarquia_Taxon (Nivel, tipo_Jerarquia) VALUES
+(1, 'Dominio'),
+(2, 'Reino'),
+(3, 'Phylum'),
+(4, 'Clase'),
+(5, 'Orden'),
+(6, 'Familia'),
+(7, 'Género'),
+(8, 'Especie');
+
+
+--cardenal norteño
+-- Dominio
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Eukarya', NULL, 1, NULL); -- ID 1
+
+-- Reino
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Animalia', NULL, 2, 1); -- ID 2
+
+-- Phylum
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Chordata', NULL, 3, 2); -- ID 3
+
+-- Clase
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Aves', NULL, 4, 3); -- ID 4
+
+-- Orden
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Passeriformes', NULL, 5, 4); -- ID 5
+
+-- Familia
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Fringillidae', NULL, 6, 5); -- ID 6
+
+-- Género
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Cardinalis', NULL, 7, 6); -- ID 7
+
+-- Especie
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Cardinalis cardinalis', 'Cardenal Norteño', 8, 7); -- ID 8
+
+WITH RECURSIVE jerarquia_completa AS (
+    SELECT
+        t.ID_Taxon,
+        t.Nombre_Cientifico,
+        t.Nombre_Comun,
+        j.Nivel,
+        j.tipo_Jerarquia,
+        t.ID_Padre,
+        CAST(t.Nombre_Cientifico AS VARCHAR(1000)) AS Ruta
+    FROM Taxon t
+    JOIN Jerarquia_Taxon j ON t.Nivel = j.Nivel
+    WHERE t.ID_Padre IS NULL
+
+    UNION ALL
+
+    SELECT
+        h.ID_Taxon,
+        h.Nombre_Cientifico,
+        h.Nombre_Comun,
+        j.Nivel,
+        j.tipo_Jerarquia,
+        h.ID_Padre,
+        CAST(jc.Ruta || ' > ' || h.Nombre_Cientifico AS VARCHAR(1000))
+    FROM Taxon h
+    JOIN jerarquia_completa jc ON h.ID_Padre = jc.ID_Taxon
+    JOIN Jerarquia_Taxon j ON h.Nivel = j.Nivel
+)
+
+SELECT
+    ID_Taxon,
+    Nombre_Cientifico,
+    Nombre_Comun,
+    Nivel,
+    tipo_Jerarquia,
+    ID_Padre,
+    Ruta
+FROM jerarquia_completa
+ORDER BY Ruta;
+
+
+-- Jaguar
+
+-- Dominio
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Eukarya', NULL, 1, NULL); -- ID 9
+
+-- Reino
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Animalia', NULL, 2, 9); -- ID 10
+
+-- Phylum
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Chordata', NULL, 3, 10); -- ID 11
+
+-- Clase
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Mammalia', NULL, 4, 11); -- ID 12
+
+-- Orden
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Carnivora', NULL, 5, 12); -- ID 13
+
+-- Familia
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Felidae', NULL, 6, 13); -- ID 14
+
+-- Género
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Panthera', NULL, 7, 14); -- ID 15
+
+-- Especie
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Panthera onca', 'Jaguar', 8, 15); -- ID 16
+
+
+
+--Orca
+-- Dominio
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Eukarya', NULL, 1, NULL); -- ID 17
+
+-- Reino
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Animalia', NULL, 2, 17); -- ID 18
+
+-- Phylum
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Chordata', NULL, 3, 18); -- ID 19
+
+-- Clase
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Mammalia', NULL, 4, 19); -- ID 20
+
+-- Orden
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Artiodactyla', NULL, 5, 20); -- ID 21
+
+-- Familia
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Delphinidae', NULL, 6, 21); -- ID 22
+
+-- Género
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Orcinus', NULL, 7, 22); -- ID 23
+
+-- Especie
+INSERT INTO Taxon (Nombre_Cientifico, Nombre_Comun, Nivel, ID_Padre) VALUES
+('Orcinus orca', 'Orca', 8, 23); -- ID 24
+
+
+ALTER TABLE Observacion_identificacion ADD COLUMN id SERIAL PRIMARY KEY;
+
+Select * from Observacion;
+Select * from Imagen;
+Select * from Lugar;
+Select * from Usuario;
+Select * from Identificacion;
+Select * from Observacion_identificacion;
+
+
+DELETE FROM Observacion_identificacion;
+
+DELETE FROM Observacion;
+ALTER SEQUENCE seq_observacion RESTART WITH 1;
+
+DELETE FROM Imagen;
+ALTER SEQUENCE seq_imagen RESTART WITH 1;
+
+DELETE FROM Lugar;
+ALTER SEQUENCE seq_lugar RESTART WITH 1;
+
+DELETE FROM Identificacion;
+ALTER SEQUENCE seq_identificacion RESTART WITH 1;
+
+ALTER TABLE Imagen ADD url VARCHAR(255);
+ALTER TABLE Observacion ADD permisos VARCHAR(255);
+
+ALTER TABLE Usuario DROP COLUMN apellido
+ALTER TABLE Observacion DROP COLUMN permisos;
+ALTER TABLE Observacion DROP COLUMN id_usuario;
+ALTER TABLE Observacion DROP COLUMN permisos;
